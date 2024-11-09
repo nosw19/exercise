@@ -1,12 +1,10 @@
 import streamlit as st
 import tempfile
-import os
 import cv2
 import numpy as np
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
-import time
 
 # 모델 로드 함수
 def load_keras_model(file_path):
@@ -52,10 +50,12 @@ if model_file:
         st.success("모델이 성공적으로 로드되었습니다.")
 
         if video_file:
-            st.video(video_file)
-
             # 비디오 분석
-            cap = cv2.VideoCapture(video_file.name)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+                temp_video.write(video_file.read())
+                video_path = temp_video.name
+
+            cap = cv2.VideoCapture(video_path)
             frame_sequence = deque(maxlen=17)
             placeholder = st.empty()  # Streamlit에서 프레임을 업데이트할 위치 지정
 
@@ -64,36 +64,17 @@ if model_file:
                 if not ret:
                     break
 
-                frame_sequence.append(np.mean(frame))
+                # 프레임을 회색조로 변환하여 평균 값을 시퀀스에 추가
+                frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                frame_sequence.append(np.mean(frame_gray))
+
+                # 프레임 시퀀스가 원하는 길이에 도달하면 예측 수행
                 if len(frame_sequence) == 17:
                     exercise = predict_exercise(classification_model, frame_sequence)
                     frame = draw_text_korean(frame, exercise, (10, 50))
                     placeholder.image(frame, channels="BGR")  # 프레임을 갱신
 
-                time.sleep(0.03)  # 프레임 속도를 맞추기 위해 약간의 딜레이 추가
-
             cap.release()
 
         else:
-            st.write("실시간 분석을 위해 웹캠을 선택하세요.")
-
-            # 실시간 분석
-            if st.button("실시간 분석 시작"):
-                cap = cv2.VideoCapture(0)
-                frame_sequence = deque(maxlen=17)
-                placeholder = st.empty()  # Streamlit에서 프레임을 업데이트할 위치 지정
-
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-
-                    frame_sequence.append(np.mean(frame))
-                    if len(frame_sequence) == 17:
-                        exercise = predict_exercise(classification_model, frame_sequence)
-                        frame = draw_text_korean(frame, exercise, (10, 50))
-                        placeholder.image(frame, channels="BGR")  # 프레임을 갱신
-
-                    time.sleep(0.03)  # 프레임 속도를 맞추기 위해 약간의 딜레이 추가
-                    
-                cap.release()
+            st.write("동영상 파일을 업로드하면 분석 결과가 표시됩니다.")
