@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
-import os
+import time
 
 # 모델 로드 함수
 def load_keras_model(file_path):
@@ -75,6 +75,7 @@ if model_file:
                     frame = draw_text_korean(frame, exercise, (10, 50))
                 
                 placeholder.image(frame, channels="BGR")  # 프레임을 업데이트하여 마치 영상을 보는 것처럼 표시
+                time.sleep(0.03)  # 약간의 지연을 추가하여 자연스러운 영상 느낌 제공
 
             cap.release()
 
