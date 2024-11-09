@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
+import time
 
 # 모델 로드 함수
 def load_keras_model(file_path):
@@ -56,7 +57,7 @@ if model_file:
             # 비디오 분석
             cap = cv2.VideoCapture(video_file.name)
             frame_sequence = deque(maxlen=17)
-            frames = []
+            placeholder = st.empty()  # Streamlit에서 프레임을 업데이트할 위치 지정
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -67,14 +68,11 @@ if model_file:
                 if len(frame_sequence) == 17:
                     exercise = predict_exercise(classification_model, frame_sequence)
                     frame = draw_text_korean(frame, exercise, (10, 50))
-                    frames.append(frame)
+                    placeholder.image(frame, channels="BGR")  # 프레임을 갱신
+
+                time.sleep(0.03)  # 프레임 속도를 맞추기 위해 약간의 딜레이 추가
 
             cap.release()
-
-            # 비디오 스트림 표시
-            st.write("비디오 분석 결과:")
-            for frame in frames:
-                st.image(frame, channels="BGR")
 
         else:
             st.write("실시간 분석을 위해 웹캠을 선택하세요.")
@@ -83,6 +81,7 @@ if model_file:
             if st.button("실시간 분석 시작"):
                 cap = cv2.VideoCapture(0)
                 frame_sequence = deque(maxlen=17)
+                placeholder = st.empty()  # Streamlit에서 프레임을 업데이트할 위치 지정
 
                 while cap.isOpened():
                     ret, frame = cap.read()
@@ -93,6 +92,8 @@ if model_file:
                     if len(frame_sequence) == 17:
                         exercise = predict_exercise(classification_model, frame_sequence)
                         frame = draw_text_korean(frame, exercise, (10, 50))
-                        st.image(frame, channels="BGR")
-                        
+                        placeholder.image(frame, channels="BGR")  # 프레임을 갱신
+
+                    time.sleep(0.03)  # 프레임 속도를 맞추기 위해 약간의 딜레이 추가
+                    
                 cap.release()
