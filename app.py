@@ -25,11 +25,7 @@ def predict_exercise(model, frame_sequence):
     return unique_labels[exercise_idx]
 
 # 한국어 텍스트 그리기 함수
-def draw_text_korean(image, text, position, font_size=30, color=(255, 255, 255)):
-    font_path = "NanumGothic.ttf"  # 현재 디렉터리에 위치한 폰트 파일 경로
-    if not os.path.exists(font_path):
-        st.error("폰트 파일을 찾을 수 없습니다. `NanumGothic.ttf` 파일을 업로드하세요.")
-        return image
+def draw_text_korean(image, text, position, font_path='NanumGothic.ttf', font_size=30, color=(255, 255, 255)):
     font = ImageFont.truetype(font_path, font_size)
     img_pil = Image.fromarray(image)
     draw = ImageDraw.Draw(img_pil)
@@ -62,7 +58,7 @@ if model_file:
 
             cap = cv2.VideoCapture(video_path)
             frame_sequence = deque(maxlen=17)
-            placeholder = st.empty()  # Streamlit에서 프레임을 업데이트할 위치 지정
+            placeholder = st.empty()  # 프레임을 업데이트할 placeholder
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -77,7 +73,8 @@ if model_file:
                 if len(frame_sequence) == 17:
                     exercise = predict_exercise(classification_model, frame_sequence)
                     frame = draw_text_korean(frame, exercise, (10, 50))
-                    placeholder.image(frame, channels="BGR")  # 프레임을 갱신
+                
+                placeholder.image(frame, channels="BGR")  # 프레임을 업데이트하여 마치 영상을 보는 것처럼 표시
 
             cap.release()
 
