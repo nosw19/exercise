@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
+import os
 
 # 모델 로드 함수
 def load_keras_model(file_path):
@@ -24,7 +25,11 @@ def predict_exercise(model, frame_sequence):
     return unique_labels[exercise_idx]
 
 # 한국어 텍스트 그리기 함수
-def draw_text_korean(image, text, position, font_path='NanumGothic.ttf', font_size=30, color=(255, 255, 255)):
+def draw_text_korean(image, text, position, font_size=30, color=(255, 255, 255)):
+    font_path = "NanumGothic.ttf"  # 현재 디렉터리에 위치한 폰트 파일 경로
+    if not os.path.exists(font_path):
+        st.error("폰트 파일을 찾을 수 없습니다. `NanumGothic.ttf` 파일을 업로드하세요.")
+        return image
     font = ImageFont.truetype(font_path, font_size)
     img_pil = Image.fromarray(image)
     draw = ImageDraw.Draw(img_pil)
