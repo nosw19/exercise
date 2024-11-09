@@ -1,15 +1,14 @@
 import streamlit as st
-import tempfile
 import cv2
 import numpy as np
+import tempfile
+import os
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
-import time
 
 # 모델 로드 함수
 def load_keras_model(file_path):
-    """Keras 모델을 안전하게 불러오는 함수"""
     try:
         model = tf.keras.models.load_model(file_path)
         return model
@@ -24,7 +23,7 @@ def predict_exercise(model, frame_sequence):
     exercise_idx = np.argmax(prediction)
     return unique_labels[exercise_idx]
 
-# 한국어 텍스트 그리기 함수
+# 한국어 텍스트 표시 함수
 def draw_text_korean(image, text, position, font_path='NanumGothic.ttf', font_size=30, color=(255, 255, 255)):
     font = ImageFont.truetype(font_path, font_size)
     img_pil = Image.fromarray(image)
@@ -32,16 +31,18 @@ def draw_text_korean(image, text, position, font_path='NanumGothic.ttf', font_si
     draw.text(position, text, font=font, fill=color)
     return np.array(img_pil)
 
+# 라벨 정의
 unique_labels = ['스텝 백워드 다이나믹 런지', '스탠딩 니업', '바벨 로우', '버피 테스트', '플랭크', 
                  '시저크로스', '힙쓰러스트', '푸시업', '업라이트로우', '스텝 포워드 다이나믹 런지']
 
-st.title("운동 동작 실시간 분석")
+st.title("운동 동작 분석 및 결과 비디오 생성")
 
-# 모델 파일 업로드
+# 모델 파일 및 비디오 파일 업로드
 model_file = st.file_uploader("모델 파일 선택", type=["keras"])
-video_file = st.file_uploader("동영상 파일 선택 (선택사항)", type=["mp4", "avi"])
+video_file = st.file_uploader("분석할 비디오 파일 선택", type=["mp4", "avi"])
 
-if model_file:
+if model_file and video_file:
+    # 임시 파일로 모델 저장
     with tempfile.NamedTemporaryFile(delete=False, suffix=".keras") as temp_model:
         temp_model.write(model_file.read())
         model_path = temp_model.name
@@ -50,34 +51,40 @@ if model_file:
     if classification_model is not None:
         st.success("모델이 성공적으로 로드되었습니다.")
 
-        if video_file:
-            # 비디오 분석
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                temp_video.write(video_file.read())
-                video_path = temp_video.name
+        # 임시 파일로 비디오 저장
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+            temp_video.write(video_file.read())
+            video_path = temp_video.name
 
-            cap = cv2.VideoCapture(video_path)
-            frame_sequence = deque(maxlen=17)
-            placeholder = st.empty()  # 프레임을 업데이트할 placeholder
+        # 비디오 캡처 및 분석 비디오 생성
+        cap = cv2.VideoCapture(video_path)
+        frame_sequence = deque(maxlen=17)
+        
+        # 비디오 저장 설정
+        output_path = os.path.join(tempfile.gettempdir(), "analyzed_video.mp4")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-                # 프레임을 회색조로 변환하여 평균 값을 시퀀스에 추가
-                frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                frame_sequence.append(np.mean(frame_gray))
+            # 프레임 시퀀스 업데이트 및 예측
+            frame_sequence.append(np.mean(frame))
+            if len(frame_sequence) == 17:
+                exercise = predict_exercise(classification_model, frame_sequence)
+                frame = draw_text_korean(frame, exercise, (10, 50))
 
-                # 프레임 시퀀스가 원하는 길이에 도달하면 예측 수행
-                if len(frame_sequence) == 17:
-                    exercise = predict_exercise(classification_model, frame_sequence)
-                    frame = draw_text_korean(frame, exercise, (10, 50))
-                
-                placeholder.image(frame, channels="BGR")  # 프레임을 업데이트하여 마치 영상을 보는 것처럼 표시
-                time.sleep(0.03)  # 약간의 지연을 추가하여 자연스러운 영상 느낌 제공
+            # 결과가 포함된 프레임을 비디오에 저장
+            out.write(frame)
 
-            cap.release()
+        # 비디오 및 저장 파일 닫기
+        cap.release()
+        out.release()
 
-        else:
-            st.write("동영상 파일을 업로드하면 분석 결과가 표시됩니다.")
+        # 분석된 비디오 파일 표시
+        st.video(output_path)
