@@ -6,6 +6,7 @@ import os
 import tensorflow as tf
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
+import ffmpeg
 
 # 모델 로드 함수
 def load_keras_model(file_path):
@@ -86,5 +87,9 @@ if model_file and video_file:
         cap.release()
         out.release()
 
-        # 분석된 비디오 파일 표시
-        st.video(output_path)
+        # FFmpeg를 사용하여 형식 변환
+        converted_path = os.path.join(tempfile.gettempdir(), "converted_analyzed_video.mp4")
+        ffmpeg.input(output_path).output(converted_path).run(overwrite_output=True)
+
+        # 변환된 비디오 파일 표시
+        st.video(converted_path)
